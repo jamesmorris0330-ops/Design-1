@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { survivalActions, type SurvivalPublicWorld, type SurvivalPrivatePlayer } from './survival';
 
 export const settingsSchema = z.object({
   rounds: z.number().int().min(3).max(20),
@@ -10,6 +11,7 @@ export type RoomSettings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: RoomSettings = { rounds: 3, roundCap: 20, extensions: true, allowSpectators: true };
 
 export const actionSchema = z.discriminatedUnion('type', [
+  ...survivalActions,
   z.object({ type: z.literal('ready'), ready: z.boolean() }).strict(),
   z.object({ type: z.literal('settings'), settings: settingsSchema }).strict(),
   z.object({ type: z.literal('start') }).strict(),
@@ -69,6 +71,7 @@ export interface RoomView {
   settings: RoomSettings; members: PublicMember[]; game: PublicGame | null;
   events: PublicEvent[]; chat: ChatMessage[]; chatMuted: boolean;
   selfId: string; me: PrivatePlayer | null;
+  survival?: SurvivalPublicWorld; survivorMe?: SurvivalPrivatePlayer | null;
 }
 export type ServerMessage =
   | { type: 'snapshot'; view: RoomView; serverTime: number; viewVersion: number }

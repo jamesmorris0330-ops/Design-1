@@ -1,0 +1,91 @@
+.shelter-duties{min-width:0;color:var(--s-text,#e7e5d9)}
+.shelter-duty-heading,.shelter-section-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.shelter-duty-heading>div:first-child{max-width:640px;min-width:0}
+.shelter-duty-day{min-width:110px;flex-shrink:0;text-align:right;display:flex;flex-direction:column;gap:5px}
+.shelter-duty-day>span{font:9px ui-monospace,Consolas,monospace;color:var(--s-teal,#8bd4c8);letter-spacing:.09em}
+.shelter-duty-day>strong{font:34px ui-monospace,Consolas,monospace;color:var(--s-amber,#e7b971);line-height:1.1}
+.shelter-duty-day small{font-size:16px;color:var(--s-muted,#a9bbb9)}
+.shelter-duty-brief{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#303c30,#203034);border:1px solid #5a6650;border-radius:7px;padding:17px;margin:18px 0 23px}
+.shelter-duty-warning{height:32px;width:32px;display:grid;place-items:center;flex-shrink:0;background:#e7b971;border-radius:50%;font:bold 22px Georgia,serif;color:#26322e}
+.shelter-duty-brief>div:first-of-type{flex:1;min-width:0}
+.shelter-duty-brief strong{font-size:12px;color:#e4d5b7}
+.shelter-duty-brief p{font-size:11px;line-height:1.8;color:#bfccc0;margin:5px 0 0}
+.shelter-duty-brief p b{color:#e5d2a3;font-weight:700}
+.shelter-duty-countdown{text-align:right;border-left:1px solid #53634e;padding-left:18px;display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.shelter-duty-countdown>span,.shelter-duty-countdown small{font:8px ui-monospace,Consolas,monospace;color:#afbeb4;letter-spacing:.05em}
+.shelter-duty-countdown time{font:17px ui-monospace,Consolas,monospace;color:#ead0a4}
+.shelter-duty-countdown small{font-size:7px;color:#8daba0}
+.shelter-position-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.shelter-position-card{position:relative;display:flex;flex-direction:column;min-width:0;border:1px solid #405958;border-radius:8px;background:linear-gradient(145deg,#1b3035,#12222b);padding:15px;overflow:hidden}
+.shelter-position-card::before{content:'';position:absolute;width:115px;height:115px;border-radius:50%;background:#93b59409;right:-50px;top:-45px;pointer-events:none}
+.shelter-position-card.is-your-role{border-color:#c2a16e;box-shadow:inset 0 1px 0 #d3b07940}
+.shelter-position-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.shelter-role-illustration{width:78px;height:65px;flex-shrink:0}
+.shelter-position-title>div{min-width:0}
+.shelter-position-title span{display:block;font:7px ui-monospace,Consolas,monospace;letter-spacing:.07em;color:#a0b7ac;margin-bottom:6px}
+.shelter-position-title h3{font-size:19px!important;margin:0!important;color:#e2dcc8!important}
+.shelter-position-holder{padding:10px 11px;background:#0e1c23;border:1px solid #314b4e;border-radius:5px;min-width:0}
+.shelter-position-holder>span{display:block;color:#829e9c;font:7px ui-monospace,Consolas,monospace;letter-spacing:.1em;margin-bottom:6px}
+.shelter-position-holder strong{font-size:12px;display:flex;align-items:center;gap:7px;overflow-wrap:anywhere}
+.shelter-position-holder strong small{font:7px ui-monospace,Consolas,monospace;color:#adccbc;border:1px solid #4c675d;border-radius:3px;padding:2px 4px;flex-shrink:0}
+.shelter-position-description{min-height:34px;line-height:1.6;font-size:11px;color:#aabdb6!important;margin:13px 0 9px!important}
+.shelter-duty-progress>div:first-child{display:flex;justify-content:space-between;gap:9px;margin-bottom:7px}
+.shelter-duty-progress span{font:8px ui-monospace,Consolas,monospace;color:#8ea89b;letter-spacing:.06em}
+.shelter-duty-progress b{font:9px ui-monospace,Consolas,monospace;color:#d5d5b8}
+.shelter-duty-progress>div:last-child{height:4px;background:#0a171e;overflow:hidden;border-radius:3px}
+.shelter-duty-progress i{display:block;height:100%;background:#d9b574;transition:width .2s}
+.shelter-duty-progress.is-complete span{color:#a6d8b3}
+.shelter-duty-progress.is-complete i{background:#88c8a5}
+.shelter-duty-unassigned{font-size:10px;color:#8aa49d!important;line-height:1.7;min-height:27px}
+.shelter-position-election{margin-top:auto;padding-top:16px}
+.shelter-position-election>.survival-button{width:100%;margin-top:3px}
+.shelter-position-election label,.shelter-stash-transfer label,.shelter-field-aid-actions label{font-size:10px;display:block;color:#b4c8bd;margin-bottom:7px}
+.shelter-position-election select,.shelter-stash-transfer select,.shelter-stash-transfer input,.shelter-field-aid-actions select{width:100%;max-width:100%;min-width:0;background:#11212a;border:1px solid #516967;color:#e4e1cd;border-radius:5px;padding:10px;font-size:11px;line-height:1.4}
+.shelter-position-election select{margin-bottom:7px}
+.shelter-election-status{display:flex;align-items:center;gap:6px;font-size:10px;color:#cce0c3}
+.shelter-election-status>time{margin-left:auto;white-space:nowrap;font:10px ui-monospace,Consolas,monospace;color:#e3c18a}
+.shelter-election-live{width:5px;height:5px;background:#b1dab1;border-radius:50%;box-shadow:0 0 9px #83d9a290}
+.shelter-election-count{font-size:9px!important;line-height:1.6!important;color:#9cb4a9!important;margin:8px 0 12px!important}
+.shelter-ballot-locked{font-size:10px!important;line-height:1.7;color:#b2d2b6!important;padding:10px;background:#203b31;border:1px solid #476950;border-radius:5px;margin:7px 0 0!important;overflow-wrap:anywhere}
+.shelter-ballot-locked>span{margin-right:4px;color:#bedfb2}
+.shelter-election-rule{font-size:10px!important;line-height:1.6;color:#91aaa5!important;margin:13px 0 25px!important}
+.shelter-personal-duties,.shelter-communal-stash{border-top:1px solid #3b5254;margin-top:24px;padding-top:21px}
+.shelter-section-heading h3{font-size:18px!important;margin-top:7px!important}
+.shelter-duty-roster{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:15px}
+.shelter-crew-duty{padding:15px;background:#13232b;border:1px solid #365052;border-radius:6px;min-width:0}
+.shelter-crew-duty.is-you{background:#1c302f;border-color:#64745d}
+.shelter-crew-duty-name{display:flex;align-items:center;gap:10px}
+.shelter-crew-marker{display:grid;place-items:center;height:33px;width:33px;border:1px solid #4d6b64;border-radius:6px;background:#2d4a43;color:#c4d4b0;font:15px ui-monospace,Consolas,monospace;flex-shrink:0}
+.shelter-crew-duty-name>div{min-width:0}
+.shelter-crew-duty-name strong{font-size:12px;display:block;overflow-wrap:anywhere}
+.shelter-crew-duty-name>div>span{font:7px ui-monospace,Consolas,monospace;color:#8cafaa;letter-spacing:.07em;display:block;margin-top:6px}
+.shelter-roster-task{padding-top:13px;margin-top:13px;border-top:1px solid #304d4a}
+.shelter-roster-task p{font-size:11px;color:#c9d6c1!important;line-height:1.6;margin:0 0 10px!important}
+.shelter-stash-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin:18px 0}
+.shelter-stash-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;color:#e9dfc4;background:#11222a;border:1px solid #3d5556;border-radius:6px;cursor:pointer;padding:10px 2px}
+.shelter-stash-item:hover,.shelter-stash-item.is-selected{border-color:#c6aa7b;background:#2a3730}
+.shelter-supply-icon{width:44px;height:44px;flex-shrink:0}
+.shelter-stash-item>strong{font:18px ui-monospace,Consolas,monospace;line-height:1.3}
+.shelter-stash-item>span{font-size:8px;color:#b1c3b1;text-align:center;max-width:100%;overflow-wrap:anywhere}
+.shelter-stash-transfer{display:grid;grid-template-columns:minmax(110px,1fr) 75px minmax(90px,1fr) auto;gap:14px;align-items:end;background:#1f3032;border:1px solid #415751;border-radius:7px;padding:15px}
+.shelter-stash-personal{align-self:center;min-width:0}
+.shelter-stash-personal>span{font:7px ui-monospace,Consolas,monospace;color:#91b0a3;letter-spacing:.08em;display:block;margin-bottom:8px}
+.shelter-stash-personal>strong{font:18px ui-monospace,Consolas,monospace;color:#e9d2a5}
+.shelter-stash-personal small{font:10px Arial,sans-serif;color:#c1cdb9}
+.shelter-stash-buttons{display:flex;gap:7px;align-items:center}
+.shelter-stash-note{font-size:10px!important;color:#9ab3a8!important;line-height:1.7;margin:10px 2px 0!important}
+.shelter-field-aid{display:flex;gap:16px;align-items:center;border:1px solid #5a6760;background:linear-gradient(110deg,#263733,#1b2b30);border-radius:8px;padding:18px;margin-top:24px}
+.shelter-field-aid>.shelter-role-illustration{width:88px;height:80px}
+.shelter-field-aid-copy{flex:1;min-width:0}
+.shelter-field-aid-copy h3{margin:6px 0!important;font-size:20px!important}
+.shelter-field-aid-copy p{font-size:11px!important;color:#afc3b8!important;line-height:1.7;margin:0!important}
+.shelter-field-aid-actions{width:245px;max-width:100%;flex-shrink:0}
+.shelter-field-aid-actions>.survival-button{width:100%;margin-top:8px;justify-content:space-between;gap:8px}
+.shelter-field-aid-actions>.survival-button>span{font:8px ui-monospace,Consolas,monospace;color:#abc0b1}
+.shelter-field-aid-actions>small{font-size:9px;color:#97b1a3;display:block;line-height:1.6;margin-top:6px}
+.shelter-duty-loading{border:1px dashed #4c6562;border-radius:6px;padding:25px;font-size:12px;color:#bad0c1;text-align:center}
+.shelter-duties input:focus-visible{outline:2px solid #e7b971;outline-offset:3px}
+@media(max-width:1050px){.shelter-position-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shelter-stash-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.shelter-stash-transfer{grid-template-columns:minmax(100px,1fr) 75px minmax(90px,1fr)}.shelter-stash-buttons{grid-column:1/-1;justify-content:flex-end}.shelter-field-aid{flex-wrap:wrap}.shelter-field-aid-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}.shelter-field-aid-actions>label{grid-column:1/-1;margin:0}.shelter-field-aid-actions>.survival-button{margin:0}.shelter-field-aid-actions>small{grid-column:1/-1;margin:0}}
+@media(max-width:620px){.shelter-duty-heading{gap:12px;align-items:flex-start}.shelter-duty-heading h2{font-size:21px}.shelter-duty-heading .survival-kicker{font-size:8px}.shelter-duty-heading .survival-muted{font-size:11px}.shelter-duty-day{min-width:67px;gap:5px;padding-top:3px}.shelter-duty-day>span{font-size:7px}.shelter-duty-day>strong{font-size:27px}.shelter-duty-day small{font-size:12px}.shelter-duty-brief{padding:13px;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:14px 0 17px}.shelter-duty-warning{height:25px;width:25px;font-size:18px}.shelter-duty-brief strong{font-size:11px}.shelter-duty-brief p{font-size:10px}.shelter-duty-countdown{width:100%;padding:10px 0 0;margin-top:2px;border-left:0;border-top:1px solid #52634f;display:flex;flex-direction:row;align-items:center;gap:10px;justify-content:space-between}.shelter-duty-countdown time{font-size:14px}.shelter-duty-countdown>span{font-size:7px}.shelter-duty-countdown small{font-size:6px}.shelter-position-grid{gap:8px}.shelter-position-card{padding:10px}.shelter-position-title{gap:5px;margin-bottom:10px;align-items:flex-start;flex-direction:column}.shelter-role-illustration{width:63px;height:51px}.shelter-position-title span{font-size:6px;letter-spacing:.025em}.shelter-position-title h3{font-size:17px!important}.shelter-position-holder{padding:8px}.shelter-position-holder>span{font-size:6px}.shelter-position-holder strong{font-size:10px;flex-wrap:wrap;line-height:1.4;gap:4px}.shelter-position-description{font-size:10px;min-height:45px}.shelter-duty-progress span{font-size:7px;letter-spacing:.025em}.shelter-duty-progress b{font-size:8px}.shelter-position-election .survival-button{font-size:10px;padding:8px;min-height:34px;gap:5px}.shelter-position-election label{font-size:9px}.shelter-position-election select{font-size:10px;padding:8px 5px}.shelter-election-status{font-size:9px;gap:4px;flex-wrap:wrap}.shelter-election-status>time{font-size:9px}.shelter-election-count{font-size:8px!important}.shelter-duty-unassigned{font-size:9px}.shelter-ballot-locked{font-size:9px!important;padding:8px}.shelter-election-rule{font-size:9px!important}.shelter-duty-roster{grid-template-columns:1fr;gap:8px}.shelter-crew-duty{padding:12px}.shelter-section-heading{gap:10px;align-items:flex-start}.shelter-section-heading .survival-kicker{font-size:7px}.shelter-section-heading .survival-chip{font-size:7px;white-space:normal;text-align:right;max-width:95px;line-height:1.5}.shelter-section-heading h3{font-size:17px!important}.shelter-stash-grid{gap:6px}.shelter-stash-item{padding:9px 2px}.shelter-stash-item>strong{font-size:17px}.shelter-stash-item>span{font-size:8px}.shelter-stash-transfer{padding:12px;gap:11px;grid-template-columns:1fr 68px}.shelter-stash-personal{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #3d5550;padding-top:11px}.shelter-stash-personal>span{margin:0}.shelter-stash-buttons{display:grid;grid-template-columns:1fr 1fr}.shelter-stash-transfer label{font-size:10px}.shelter-stash-buttons .survival-button{min-height:39px;font-size:11px}.shelter-field-aid{gap:10px;padding:12px}.shelter-field-aid>.shelter-role-illustration{width:60px;height:65px}.shelter-field-aid-copy .survival-kicker{font-size:7px}.shelter-field-aid-copy h3{font-size:19px!important}.shelter-field-aid-copy p{font-size:10px!important}.shelter-field-aid-actions{grid-template-columns:1fr}.shelter-field-aid-actions select{font-size:11px}.shelter-field-aid-actions>.survival-button{min-height:38px}}
+@media(max-width:620px){.shelter-position-election .survival-button,.shelter-stash-buttons .survival-button,.shelter-field-aid-actions>.survival-button{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.shelter-duty-progress i{transition:none}}

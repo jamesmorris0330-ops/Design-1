@@ -72,8 +72,7 @@ export function useRoom(code: string | null) {
             for (const envelope of pending.current.values()) ws.send(JSON.stringify(envelope));
           }
         } else if (message.type === 'ack') {
-          pending.current.delete(message.commandId);
-          publishPending();
+          if (pending.current.delete(message.commandId)) publishPending();
           if (!message.ok) setError(message.error?.message ?? 'That action could not be accepted.');
         } else if (message.type === 'superseded') {
           fenced = true;
@@ -101,10 +100,11 @@ export function useRoom(code: string | null) {
   const send = useCallback((action: Action) => {
     const current = viewRef.current;
     if (!current || !ready.current || socket.current?.readyState !== WebSocket.OPEN) { setError('Wait for your connection to return before submitting an action.'); return false; }
-    if ([...pending.current.values()].some(p => p.action.type === action.type)) return false;
-    const command: CommandEnvelope = { commandId: commandId(), gameId: current.game?.id ?? null, phaseId: current.game?.phase.id ?? null, action };
-    pending.current.set(command.commandId, command);
-    publishPending();
+    if (action.type !== 'survival_input' && [...pending.current.values()].some(p => p.action.type === action.type)) return false;
+    const command: CommandEnvelope = { commandId: commandId(), gameId: current.survival?.id ?? current.game?.id ?? null, phaseId: current.survival ? null : current.game?.phase.id ?? null, action };
+    // Continuous movement is replaceable intent, never replayed after reconnect.
+    // Purchases and other durable actions retain their original IDs for deduplication.
+    if (action.type !== 'survival_input') { pending.current.set(command.commandId, command); publishPending(); }
     socket.current.send(JSON.stringify(command));
     return true;
   }, []);

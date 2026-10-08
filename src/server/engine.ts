@@ -1,5 +1,7 @@
 import { randomUUID, randomInt } from 'node:crypto';
 import type { CommandEnvelope, RoomSettings, RoomView, PersonalResult, RevealEntry } from '../shared/protocol.js';
+import type { SurvivalAction, SurvivalWorld } from '../shared/survival.js';
+import { addSurvivalPlayer, applySurvivalAction, createSurvivalWorld, projectSurvivalPlayer, projectSurvivalWorld, SurvivalError } from './survival.js';
 
 /** Canonical records are server-only. projectRoom is the sole client boundary. */
 export class EngineError extends Error {
@@ -9,7 +11,7 @@ type PhaseType = 'crisis' | 'directive' | 'discussion' | 'decision' | 'reveal' |
 type VoteType = 'exposure' | 'restriction' | 'trust';
 type FinalChoice = 'group' | 'self';
 type Allocation = { medical: number; security: number; reserve: number };
-type Member = { id: string; sessionId: string; nickname: string; joinedAt: number; role: 'subject' | 'spectator'; ready: boolean; removed: boolean; controller?: 'human' | 'cpu'; cpuLastDiscussionPhase?: string };
+type Member = { id: string; sessionId: string; nickname: string; joinedAt: number; role: 'subject' | 'spectator'; ready: boolean; removed: boolean; controller?: 'human' | 'cpu'; cpuLastDiscussionPhase?: string; cpuReplyState?: { phaseId: string; repliedIds: string[]; count: number } };
 type DirectiveKind = 'medical2' | 'security2' | 'reserve2' | 'medical0' | 'security0' | 'reserve3' | 'balanced' | 'both' | 'group' | 'self';
 type Directive = { id: string; kind: DirectiveKind; title: string; instruction: string; reward: number };
 type DossierEntry = { id: string; round: number; kind: string; text: string; at: number; data?: Record<string, unknown> };
@@ -22,7 +24,7 @@ type Trial = { id: string; title: string; description: string; threshold: number
 type Extension = { id: string; addedRounds: number; fromRounds: number; toRounds: number; eligibleIds: string[]; ballots: Record<string, boolean>; yes: number | null; no: number | null; accepted: boolean | null };
 type Result = { playerId: string; subjectNumber: number; compliance: number; requirement: number; qualified: boolean; completedDirectives: number; trustVotes: number; trustRank: number; classification: string; withdrawn: boolean };
 export type Game = { id: string; initialRoundCount: number; plannedTotalRounds: number; maxRounds: number; extensionsEnabled: boolean; round: number; startingSubjectCount: number; stabilityTicks: number; phase: Phase; paused: boolean; pauseReason: string | null; subjects: Record<string, Subject>; trial: Trial | null; extension: Extension | null; extensionHistory: Extension[]; outcome: 'survived' | 'failed' | 'aborted' | null; results: Result[]; finalCounts: { group: number; self: number; delta: number } | null; publicEvents: PublicEvent[] };
-export type Room = { id: string; code: string; hostId: string; settings: RoomSettings; status: 'lobby' | 'running' | 'postgame' | 'closed'; members: Member[]; game: Game | null; pastGames: Game[]; chat: { id: string; senderId: string; nickname?: string; text: string; at: number; type: 'chat' | 'statement' }[]; events: CanonicalEvent[]; chatMuted: boolean };
+export type Room = { id: string; code: string; hostId: string; settings: RoomSettings; status: 'lobby' | 'running' | 'postgame' | 'closed'; members: Member[]; game: Game | null; survival?: SurvivalWorld; pastGames: Game[]; chat: { id: string; senderId: string; nickname?: string; text: string; at: number; type: 'chat' | 'statement' }[]; events: CanonicalEvent[]; chatMuted: boolean };
 
 const PHASE_DURATION: Partial<Record<PhaseType, number>> = { crisis: 8_000, directive: 15_000, discussion: 45_000, decision: 30_000, reveal: 12_000, vote: 30_000, consequences: 8_000, dossier: 15_000, extension_offer: 20_000, extension_vote: 30_000, final_directive: 15_000, final_choice: 30_000, final_resolution: 8_000, personal_results: 15_000 };
 const CRISES = [
@@ -81,20 +83,23 @@ export function addMember(room: Room, joining: { id: string; sessionId: string; 
   const previous = room.members.find(m => m.sessionId === joining.sessionId);
   if (previous && !previous.removed) return previous.id;
   if (previous?.removed) fail('REMOVED', 'This session has been removed from the room.');
-  const availableCpu = room.members.find(m => !m.removed && m.role === 'subject' && isCpuMember(m) && (room.status === 'lobby' || room.status === 'running' && room.game && !room.game.outcome && room.game.subjects[m.id] && !room.game.subjects[m.id]!.withdrawn));
+  const availableCpu = room.members.find(m => !m.removed && m.role === 'subject' && isCpuMember(m) && (room.status === 'lobby' || room.status === 'running' && (room.survival?.active && room.survival.players[m.id] || room.game && !room.game.outcome && room.game.subjects[m.id] && !room.game.subjects[m.id]!.withdrawn)));
   if (availableCpu) {
     const previousNickname = availableCpu.nickname;
     availableCpu.controller = 'human'; availableCpu.sessionId = joining.sessionId; availableCpu.nickname = joining.nickname; availableCpu.ready = false; availableCpu.joinedAt = now;
-    publish(room, 'cpu_takeover', `${joining.nickname} replaced ${previousNickname}. The same Subject, score and dossier are retained. Any already locked actions remain in force.`, now, { playerId: availableCpu.id, previousNickname, nickname: joining.nickname });
+    const survivalPlayer = room.survival?.players[availableCpu.id];
+    if (survivalPlayer) survivalPlayer.input = { moveX: 0, moveY: 0, aim: survivalPlayer.aim, fire: false, receivedAt: now };
+    publish(room, 'cpu_takeover', room.survival ? `${joining.nickname} replaced ${previousNickname}. Position, equipment, supplies and progress are retained.` : `${joining.nickname} replaced ${previousNickname}. The same Subject, score and dossier are retained. Any already locked actions remain in force.`, now, { playerId: availableCpu.id, previousNickname, nickname: joining.nickname });
     const inheritedSubject = room.game?.subjects[availableCpu.id];
     if (inheritedSubject) dossier(room, inheritedSubject, 'cpu_seat_inherited', `You now control ${previousNickname}'s Subject. You inherit its private directive, score and dossier. Already locked choices remain locked; this handover does not change game mechanics.`, now);
     return availableCpu.id;
   }
   const settings = room.settings as unknown as { allowSpectators: boolean };
   const count = room.members.filter(m => !m.removed && m.role === 'subject').length;
-  const isSpectator = room.status !== 'lobby' || count >= 8;
+  const isSpectator = count >= 8 || room.status !== 'lobby' && !(room.status === 'running' && room.survival?.active);
   if (isSpectator && !settings.allowSpectators) fail('SPECTATORS_DISABLED', 'Spectator admission is disabled.');
   room.members.push({ ...joining, joinedAt: now, role: isSpectator ? 'spectator' : 'subject', ready: false, removed: false, controller: 'human' });
+  if (!isSpectator && room.survival) addSurvivalPlayer(room.survival, joining.id, now);
   publish(room, 'joined', `${joining.nickname} joined as ${isSpectator ? 'a spectator' : 'a Subject'}.`, now);
   return joining.id;
 }
@@ -332,6 +337,45 @@ export function applyCommand(room: Room, actorId: string, command: CommandEnvelo
   const actor = member(room, actorId);
   const envelope = { gameId: command.gameId, phaseId: command.phaseId, type: command.action.type as string };
   const payload = command.action as unknown as Record<string, unknown>;
+  if (envelope.type.startsWith('survival_')) {
+    if (envelope.type === 'survival_start') {
+      host(room, actorId);
+      if (room.status !== 'lobby' || room.survival) fail('BAD_STATE', 'Return to the lobby before starting a new survival world.');
+      if (envelope.gameId !== null || envelope.phaseId !== null) fail('STALE_WORLD', 'This start command belongs to an earlier world.');
+      const players = room.members.filter(m => !m.removed && m.role === 'subject');
+      const humans = players.filter(m => !isCpuMember(m));
+      if (!humans.length || players.length > 8) fail('PLAYER_COUNT', 'A survival world needs at least one human survivor and supports up to eight players.');
+      if (humans.some(m => !m.ready)) fail('NOT_READY', 'Every human survivor must be ready.');
+      const action = command.action as Extract<SurvivalAction, { type: 'survival_start' }>;
+      room.game = null;
+      room.survival = createSurvivalWorld(players.map(m => m.id), action.shelterType, action.dayLengthMinutes, now);
+      room.status = 'running';
+      publish(room, 'survival_started', 'The survival world is open. Scavenge, rescue survivors, improve your shelter and defend against the infected.', now);
+      return;
+    }
+    const world = room.survival;
+    if (!world || room.status !== 'running') fail('BAD_STATE', 'There is no active survival world.');
+    if (envelope.gameId !== world.id || envelope.phaseId !== null) fail('STALE_WORLD', 'This action belongs to an earlier survival world. Refresh your room state.');
+    if (envelope.type === 'survival_pause') host(room, actorId);
+    else if (actor.role !== 'subject' || !world.players[actorId]) fail('SURVIVOR_ONLY', 'Only a survivor in this world can do that.');
+    try { applySurvivalAction(world, actorId, command.action as SurvivalAction, now, room.hostId, new Set(room.members.filter(m => !m.removed && m.role === 'subject').map(m => m.id))); }
+    catch (error) { if (error instanceof SurvivalError) fail(error.code, error.message); throw error; }
+    return;
+  }
+  if (room.survival && room.status === 'running') {
+    if (['transfer_host', 'remove', 'mute_chat', 'pause', 'resume', 'end'].includes(envelope.type) && (envelope.gameId !== room.survival.id || envelope.phaseId !== null)) fail('STALE_WORLD', 'This host action belongs to an earlier survival world.');
+    if (['pause', 'resume'].includes(envelope.type)) {
+      host(room, actorId);
+      try { applySurvivalAction(room.survival, actorId, { type: 'survival_pause', paused: envelope.type === 'pause' }, now, room.hostId); }
+      catch (error) { if (error instanceof SurvivalError) fail(error.code, error.message); throw error; }
+      return;
+    }
+    if (envelope.type === 'end') {
+      host(room, actorId); room.survival.active = false; room.status = 'postgame';
+      publish(room, 'survival_ended', 'The host ended this survival world. Its final state is retained until a new world is started.', now); return;
+    }
+    if (['start', 'decision', 'vote', 'final_choice', 'statement', 'extension', 'extension_vote', 'continue', 'advance'].includes(envelope.type)) fail('SURVIVAL_MODE', 'This world uses continuous survival, with rounds only for infected hordes.');
+  }
   const g = room.game;
   const gameCommands = ['decision', 'vote', 'final_choice', 'statement', 'extension', 'extension_vote', 'continue', 'pause', 'resume', 'advance', 'end'];
   if (gameCommands.includes(envelope.type)) {
@@ -362,7 +406,7 @@ export function applyCommand(room: Room, actorId: string, command: CommandEnvelo
       host(room, actorId);
       if (room.status !== 'postgame') fail('BAD_STATE', 'Finish the current Experiment before a rematch.');
       if (room.game) (room.pastGames ??= []).push(structuredClone(room.game));
-      room.game = null; room.status = 'lobby'; room.members.forEach(m => { m.ready = isCpuMember(m); }); publish(room, 'rematch', 'The room is ready for a fresh Experiment.', now); break;
+      room.game = null; delete room.survival; room.status = 'lobby'; room.members.forEach(m => { m.ready = isCpuMember(m); }); publish(room, 'rematch', 'The room is ready for a fresh Experiment.', now); break;
     }
     case 'set_role': {
       host(room, actorId);
@@ -390,6 +434,8 @@ export function applyCommand(room: Room, actorId: string, command: CommandEnvelo
       const target = member(room, String(payload.targetId));
       if (target.id === actorId) fail('SELF_REMOVE', 'Transfer host before leaving your room.');
       target.removed = true; target.ready = false;
+      const survivor = room.survival?.players[target.id];
+      if (survivor) survivor.input = { moveX: 0, moveY: 0, aim: survivor.aim, fire: false, receivedAt: now };
       if (g?.subjects[target.id] && !g.outcome) g.subjects[target.id]!.withdrawn = true;
       publish(room, 'removed', `${target.nickname} was removed by the host. Committed history is retained.`, now);
       if (room.status === 'running' && g && !g.outcome) {
@@ -499,10 +545,14 @@ export function projectRoom(room: Room, viewerId: string, onlineIds: Set<string>
   }
   const privateDirective = self?.directive ?? null;
   const isFinal = privateDirective?.kind === 'group' || privateDirective?.kind === 'self';
+  const survival = room.survival ? projectSurvivalWorld(room.survival) : null;
+  if (survival) survival.players = survival.players.filter(player => room.members.some(m => m.id === player.id && !m.removed && m.role === 'subject'));
+  const viewer = room.members.find(m => m.id === viewerId)!;
+  const survivorNumbers = room.survival ? Object.keys(room.survival.players) : [];
   return {
     id: room.id, code: room.code, hostId: room.hostId, settings: { ...room.settings }, status: room.status, chatMuted: room.chatMuted,
     selfId: viewerId,
-    members: room.members.map(m => ({ id: m.id, nickname: m.nickname, role: m.role, ready: m.ready, removed: m.removed, controller: isCpuMember(m) ? 'cpu' : 'human', connected: !m.removed && (isCpuMember(m) || onlineIds.has(m.id)), subjectNumber: g?.subjects[m.id]?.number ?? null })),
+    members: room.members.map(m => ({ id: m.id, nickname: m.nickname, role: m.role, ready: m.ready, removed: m.removed, controller: isCpuMember(m) ? 'cpu' : 'human', connected: !m.removed && (isCpuMember(m) || onlineIds.has(m.id)), subjectNumber: g?.subjects[m.id]?.number ?? (survivorNumbers.includes(m.id) ? survivorNumbers.indexOf(m.id) + 1 : null) })),
     chat: room.chat.map(m => ({ id: m.id, senderId: m.senderId, nickname: m.nickname ?? room.members.find(p => p.id === m.senderId)?.nickname ?? 'Removed Subject', text: m.text, at: m.at, type: m.type ?? 'chat' })),
     events: (g ? g.publicEvents : room.events.filter(e => e.visibility === 'public')).map(e => ({ id: e.id, at: e.at, round: e.round, type: e.kind, title: titleOf(e.kind), detail: e.text })),
     game: g ? {
@@ -529,5 +579,6 @@ export function projectRoom(room: Room, viewerId: string, onlineIds: Set<string>
       dossier: self.dossier.map(e => ({ id: e.id, round: e.round, title: titleOf(e.kind), text: e.text, complianceDelta: Number(e.data?.complianceDelta ?? 0), at: e.at })),
       result: ownResult ? resultView(room, ownResult) : null,
     } : null,
+    ...(room.survival && survival ? { survival, survivorMe: viewer.role === 'subject' ? projectSurvivalPlayer(room.survival, viewerId) : null } : {}),
   };
 }

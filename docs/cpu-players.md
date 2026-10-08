@@ -1,23 +1,25 @@
-# Solo play and CPU Subjects
+# Solo play and CPU companions
 
-One human can start THE EXPERIMENT. Mark ready in the lobby, then choose **Start with CPU players**. The server fills empty seats until there are four Subjects. The host can also use **Add CPU player** before starting to build a larger group, up to eight total human and CPU Subjects.
+One human can start a survival world without companions. In the lobby, the host can use **Add CPU player** to add optional teammates, up to eight total humans and CPUs. Every human must **Mark ready** before the host chooses **Start survival**. CPUs are ready automatically and visibly labeled CPU.
 
-Every human Subject must mark ready. CPU Subjects are ready automatically and are visibly labeled CPU. The group-survival and individual-Compliance conditions, scoring, directives, votes, restrictions, extensions, and finale remain the same.
+CPU teammates move through the same world, collect supplies, rescue available survivors, fight infected, reload, and return to defend a threatened shelter. They use their own finite inventory and ammunition; their shots and loot follow the authoritative server rules. They participate in shelter elections. They do not complete every elected duty or manage the crafting queue for you. No external AI service or account is needed.
 
-CPUs discuss, allocate resources, vote, deliver final statements, and make final choices. Each CPU uses its own directive and Compliance together with public Stability, messages, and disclosed evidence. It cannot read other Subjects' private information. When Stability is low, it prioritizes survival; otherwise it can pursue its personal directives. CPU actions run on the server, pause with the game, and recover after a restart. No external AI service or account is required.
+These CPU player seats differ from rescued NPC survivors. NPC Guardians, Medics, Scavengers, and Engineers support the base and can be upgraded; they do not occupy one of the eight player seats and cannot be taken over by joining humans.
 
 ## Joining a CPU seat
 
-A new person joining by room code takes an available CPU seat in the lobby or during an active game. The human inherits that seat's Subject ID and number, Compliance and original requirement, private directive, dossier, restrictions, and history. Group size, scoring denominators, and phase eligibility remain unchanged. The CPU stops acting for that seat immediately.
+A new human joining with a room code takes an available CPU seat in the lobby or during active survival. The server changes its controller while retaining the same player ID, position, inventory, weapons, gear, needs, progress, jobs, and community assignments. Already submitted election ballots remain locked. The CPU immediately stops acting for that seat, and the public record announces the takeover.
 
-An allocation, ballot, extension consent, final statement, or final choice already locked by the CPU stays locked. The new player can review it and take control of future available actions. The public record announces the takeover, and the inherited dossier explains it. Previous CPU messages retain their original sender name.
+When no CPU seat is available, an active survival world admits a new player if fewer than eight player seats are occupied. The new survivor receives a starter inventory and spawns near the shared base. At eight players, newcomers observe as spectators when spectator admission is enabled. Completed expeditions do not offer active CPU takeovers; the host can return everyone to the persistent lobby to prepare a new world.
 
-Refresh or reconnect with the same browser profile to reclaim your existing human Subject. A returning human never replaces another human or takes a second CPU seat. Concurrent joins reserve different seats through the server's room queue. Players cannot become the controller of another human's Subject by knowing its nickname or room code.
+Refresh or reconnect using the same browser profile and server address to reclaim your existing human player. A returning human never takes over another human or consumes a second CPU seat. Separate devices or browser profiles create separate players; tabs in the same profile share one identity and the newest controlling tab supersedes the older one. A room code and nickname cannot reclaim another browser's player.
 
-When no CPU seat is available during play, newcomers become spectators if the host permits spectators. Completed games do not offer takeovers of their CPU results. Between games, use a rematch and lobby roles to prepare the next roster. CPU Subjects cannot become host or spectators; the host can remove them with the normal removal controls.
+The host can remove CPU seats using normal player controls. CPUs cannot become host or spectators. Only the host adds CPUs, and additions happen in the lobby.
 
-## Server state
+## Persistence and private state
 
-Memberships store a `controller` value (`human` or `cpu`) and a private session linkage. Older saved memberships without a controller remain human. CPU session identifiers are synthetic server records, never authentication credentials. Public member views expose the controller label; private CPU records stay behind the existing projection boundary.
+All CPU activity happens on the server and is saved with the room. CPU inventories and active ballots stay private until that seat is inherited by its authenticated human controller. Browsers receive public player positions, health, equipped weapon, and community activity, not other players' packs or ballots.
 
-CPU schedules derive from persisted phase opening times and stable Subject/phase IDs. A private discussion-phase marker prevents repeated messages after recovery. CPU mutations, phase transitions, and joins use the same serialized room queue and atomic SQLite commit path as human actions. A takeover rebinds only the available CPU's membership to the new authenticated session and retains its canonical Subject state.
+The survival clock, CPU behavior, attacks, and paid jobs pause when all humans disconnect; they also stop during host pause. Reconnecting resumes the saved world. The application serializes joins and commands per room and commits snapshots and command receipts atomically before acknowledging them, so simultaneous joins cannot take the same CPU seat.
+
+Older saved round-based games retain their own CPU directives and scoring until they finish. This release's normal create-room flow starts continuous survival; it does not turn a running older match into a survival world.

@@ -30,6 +30,6 @@ The included Dockerfile builds the client and server, then runs Node as a non-ro
 
 ## Release checks
 
-Run type checking, engine/server tests, browser tests, and the production build. Confirm anonymous joining, privacy, a full game, reconnect, and rematch on the actual public origin. Restart the service during an active room and a paused room; verify identity, history, and phase recovery with the same database.
+Run type checking, engine/server tests, browser tests, and the production build. Confirm anonymous joining, private inventories and ballots, movement and combat, a complete horde encounter, upgrades, reconnect, and a fresh expedition on the actual public origin. Restart the service during an active room and a paused room; verify identity, inventories, shelter state, upgrade jobs, and active-time clock recovery with the same database.
 
 Local validation and saved cloud setup are separate from publishing the game. A public URL requires a selected hosting target and deployment access.

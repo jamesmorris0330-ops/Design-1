@@ -192,4 +192,151 @@ describe('server CPU Subjects', () => {
     expect(room.game!.finalCounts).toMatchObject({ group: 3, self: 1, delta: 0 });
     expect(runCpuPlayers(room, due(room))).toBe(false);
   });
+
+  it('answers a targeted human appeal with a delayed public reply addressed to that human', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    runCpuPlayers(room, due(room));
+    const askedAt = due(room) + 500;
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Medical?' }, askedAt);
+    expect(runCpuPlayers(room, askedAt + 999)).toBe(false);
+    expect(runCpuPlayers(room, askedAt + 3_001)).toBe(true);
+    const replies = room.chat.filter(message => message.senderId === 'p2' && message.text.startsWith('@Human — '));
+    expect(replies).toHaveLength(1);
+    expect(replies[0]!.text).toContain('Medical');
+    expect(runCpuPlayers(room, askedAt + 4_001)).toBe(false);
+  });
+
+  it('lets a current-round public request steer an unlocked legal allocation without changing scoring rules', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    room.game!.subjects.p2!.directive = { id: 'both', kind: 'both', title: 'Group Benchmark', instruction: 'Submit an allocation and have both Medical and Security reach their thresholds.', reward: 2 };
+    const baseline = structuredClone(room); until(baseline, 'decision'); runCpuPlayers(baseline, due(baseline));
+    const old = baseline.game!.subjects.p2!.allocation!;
+    const system = old.medical > old.security ? 'Security' : 'Medical';
+    act(room, 'p1', { type: 'chat', text: `@Subject 2 — Can you help ${system}?` });
+    until(room, 'decision');
+    runCpuPlayers(room, due(room)); runCpuPlayers(room, due(room) + 1);
+    const changed = room.game!.subjects.p2!.allocation!;
+    expect(changed).not.toEqual(old);
+    expect(changed[system.toLowerCase() as 'medical' | 'security']).toBe(2);
+    expect(changed.medical + changed.security + changed.reserve).toBe(3);
+    expect(changed.medical).toBeGreaterThanOrEqual(1);
+    expect(changed.security).toBeGreaterThanOrEqual(1);
+    expect(room.game!.subjects.p2!.compliance).toBe(0); // still no resolved score
+  });
+
+  it('can refuse a request that conflicts with its own directive without announcing that directive', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    room.game!.stabilityTicks = 100 * room.game!.startingSubjectCount;
+    room.game!.subjects.p2!.directive = { id: 'private-zero', kind: 'medical0', title: 'Private', instruction: 'Allocate no units to Medical.', reward: 3 };
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Medical?' });
+    runCpuPlayers(room, due(room));
+    const reply = room.chat.find(message => message.senderId === 'p2' && message.text.startsWith('@Human — '))!;
+    expect(reply.text).toContain('cannot honestly promise Medical support');
+    expect(reply.text).not.toContain('Allocate no units to Medical.');
+    until(room, 'decision'); runCpuPlayers(room, due(room));
+    expect(room.game!.subjects.p2!.allocation!.medical).toBe(0);
+  });
+
+  it('keeps the low-Stability balanced survival response even when a human asks for a different emphasis', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    room.game!.stabilityTicks = 40 * room.game!.startingSubjectCount;
+    room.game!.subjects.p2!.medicalMinimum = 1;
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Medical?' });
+    runCpuPlayers(room, due(room));
+    expect(room.chat.find(message => message.senderId === 'p2')!.text).toContain('one unit for Medical and one for Security');
+    until(room, 'decision'); runCpuPlayers(room, due(room));
+    expect(room.game!.subjects.p2!.allocation).toEqual({ medical: 1, security: 1, reserve: 1 });
+  });
+
+  it('uses only projected information for replies, including when another player has locked a secret choice', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Security?' });
+    const changed = structuredClone(room);
+    for (const id of ['p1', 'p3', 'p4']) {
+      const subject = changed.game!.subjects[id]!;
+      subject.compliance = 9_999;
+      subject.directive = { id: 'unknown', kind: 'reserve3', title: 'Secret', instruction: 'Keep all 3 units in Reserve.', reward: 3 };
+      subject.allocation = { medical: 0, security: 0, reserve: 3 };
+      subject.dossier.push({ id: `hidden-${id}`, round: 1, kind: 'secret', text: 'DO NOT READ THIS', at: NOW });
+    }
+    expect(projectRoom(room, 'p2')).toEqual(projectRoom(changed, 'p2'));
+    runCpuPlayers(room, due(room)); runCpuPlayers(changed, due(changed));
+    const response = (state: Room) => state.chat.find(message => message.senderId === 'p2' && message.text.startsWith('@Human — '))!.text;
+    expect(response(changed)).toEqual(response(room));
+    expect(response(changed)).not.toContain('DO NOT READ THIS');
+  });
+
+  it('bounds replies per phase and remembers answered messages across a restart and phase change', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    runCpuPlayers(room, due(room));
+    for (const [index, system] of ['Medical', 'Security', 'Medical'].entries()) {
+      const askedAt = 7_000 + index * 4_000;
+      act(room, 'p1', { type: 'chat', text: `@Subject 2 — Can you help ${system}?` }, askedAt);
+      runCpuPlayers(room, askedAt + 3_001);
+    }
+    expect(room.chat.filter(message => message.senderId === 'p2' && message.text.startsWith('@Human — '))).toHaveLength(2);
+    const restored: Room = JSON.parse(JSON.stringify(room));
+    expect(runCpuPlayers(restored, 19_000)).toBe(false);
+    expect(JSON.stringify(projectRoom(restored, 'p1'))).not.toContain('cpuReplyState');
+    act(restored, 'p1', { type: 'advance' }, 19_000);
+    expect(runCpuPlayers(restored, 22_001)).toBe(true);
+    expect(restored.chat.filter(message => message.senderId === 'p2' && message.text.startsWith('@Human — '))).toHaveLength(3);
+    runCpuPlayers(restored, 24_001);
+    expect(restored.chat.filter(message => message.senderId === 'p2' && message.text.startsWith('@Human — '))).toHaveLength(3);
+  });
+
+  it('does not treat spectators, CPU messages, nickname prefixes, or old-round chat as human requests', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    runCpuPlayers(room, due(room));
+    room.members.find(member => member.id === 'p3')!.controller = 'cpu';
+    room.members.find(member => member.id === 'p4')!.role = 'spectator';
+    act(room, 'p3', { type: 'chat', text: '@Subject 2 — Can you help Medical?' }, 7_000);
+    act(room, 'p4', { type: 'chat', text: '@Subject 2 — Can you help Medical?' }, 7_000);
+    act(room, 'p1', { type: 'chat', text: '@Subject 20 — Can you help Medical?' }, 7_000);
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Medical?' }, NOW - 1);
+    runCpuPlayers(room, 10_001);
+    expect(room.chat.filter(message => message.senderId === 'p2' && message.text.startsWith('@'))).toHaveLength(0);
+  });
+
+  it('suppresses pending public replies while paused, muted, or after a human takes the CPU seat', () => {
+    const room = setup(['p2']); until(room, 'discussion');
+    act(room, 'p1', { type: 'chat', text: '@Subject 2 — Can you help Medical?' });
+    const muted = structuredClone(room); muted.chatMuted = true;
+    expect(runCpuPlayers(muted, due(muted))).toBe(false);
+    act(room, 'p1', { type: 'pause' });
+    expect(runCpuPlayers(room, due(room))).toBe(false);
+    act(room, 'p1', { type: 'resume' });
+    expect(addMember(room, { id: 'new-human', sessionId: 'new-session', nickname: 'Replacement' }, NOW)).toBe('p2');
+    expect(runCpuPlayers(room, due(room))).toBe(false);
+    expect(room.chat.filter(message => message.senderId === 'p2')).toHaveLength(0);
+  });
+
+  it('reacts once to actual public Trial outcomes without inspecting other players secret histories', () => {
+    const room = setup(['p2']); until(room, 'decision');
+    for (const id of [...room.game!.phase.eligibleIds]) act(room, id, { type: 'decision', allocation: { medical: 1, security: 1, reserve: 1 } });
+    expect(room.game!.phase.type).toBe('reveal');
+    const changed = structuredClone(room);
+    changed.game!.subjects.p1!.compliance = 999;
+    changed.game!.subjects.p1!.allocation = { medical: 0, security: 0, reserve: 3 };
+    expect(runCpuPlayers(room, due(room))).toBe(true);
+    expect(runCpuPlayers(changed, due(changed))).toBe(true);
+    expect(room.chat.filter(message => message.senderId === 'p2')).toHaveLength(1);
+    expect(changed.chat[0]!.text).toEqual(room.chat[0]!.text);
+    const restored: Room = JSON.parse(JSON.stringify(room));
+    expect(runCpuPlayers(restored, due(restored) + 1_000)).toBe(false);
+  });
+
+  it('lets a public finale appeal persuade a cooperative personality before its final choice is locked', () => {
+    const room = setup(['p3']); finalChoice(room);
+    room.game!.stabilityTicks = 100 * room.game!.startingSubjectCount;
+    room.game!.subjects.p3!.directive = { id: 'self', kind: 'self', title: 'Self', instruction: 'Choose Protect Yourself.', reward: 3 };
+    room.game!.subjects.p3!.compliance = 0;
+    const baseline = structuredClone(room); runCpuPlayers(baseline, due(baseline));
+    expect(baseline.game!.subjects.p3!.finalChoice).toBe('self');
+    act(room, 'p1', { type: 'chat', text: '@Subject 3 — Will you protect the group?' });
+    runCpuPlayers(room, due(room));
+    expect(room.chat.find(message => message.senderId === 'p3' && message.text.startsWith('@Human — '))!.text).toContain('persuaded me to protect the group');
+    runCpuPlayers(room, due(room) + 1);
+    expect(room.game!.subjects.p3!.finalChoice).toBe('group');
+  });
 });

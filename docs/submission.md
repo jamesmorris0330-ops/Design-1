@@ -6,16 +6,18 @@ THE EXPERIMENT
 
 ## Cover image
 
-[Submission cover](../assets/submission-cover.png) — 1254 × 1254 RGB PNG, using the game's cream, olive, vermilion, and lime identity.
+[Submission cover](../assets/submission-cover.png) — 1672 × 941 PNG featuring the fortified frontier shelter and its crew. The same original artwork appears on the game’s landing screen.
 
 ## Project description
 
-Trust is a variable. THE EXPERIMENT is an account-free, real-time social experiment for 1–8 human players with CPUs filling a 4–8 Subject group. Everyone must keep Group Stability above zero while following secret Directives to earn personal Compliance. There is no fixed villain: the Experiment gives ordinary people conflicting reasons to cooperate, withhold resources, and question one another.
+Scavenge what remains. Build somewhere to survive. Fight for another day. THE EXPERIMENT is an account-free, real-time survival game for one to eight players, with optional CPU companions whose seats friends can take over. Join with a room code and nickname on a phone, tablet, or laptop.
 
-Join with a room code and nickname on a phone, tablet, or laptop. Start alone with CPU Subjects; friends joining later can inherit available CPU seats, scores, and dossiers. Discuss a public crisis, make secret resource decisions, resolve mixed votes, and review your private dossier. Choose 3–20 total rounds, including a multi-stage finale; consent to extra Trials before the finale without changing qualification targets. Final interrogation, private instructions, simultaneous final choices, personal results, and Full Reveal expose what actually happened. Refreshes restore your Subject, and persistent rooms support rematches.
+Explore an illustrated world, collect supplies, guns, and gear, shoot roaming infected, and defend against horde waves. Rescue survivors with distinct Guardian, Medic, Scavenger, and Engineer roles; craft and upgrade your equipment, crew, and shelter facilities. Choose from five shelter types, keep one shared base, and discover another refuge to move the community.
 
-The first playable release uses a server-authoritative game engine with durable recovery and explicit public/private state boundaries. It includes one resource-allocation Trial family. Contracts, investigation, powers, alliances, deception, additional Trial families, adaptive tones, and awards remain subsequent stages of the approved roadmap.
+Elect five shelter officers with private ballots, complete daily duties, pool supplies, and treat wounded teammates. Daily, weekly, and monthly goals support longer progression. The default game day lasts one real hour of active play. World time stops when all humans disconnect, and saved sessions restore your player and inventory.
+
+Combat, loot, costs, rewards, ballots, and timers are controlled by the server. Public world updates omit other players’ inventories and ballots. Desktop and phone controls, animated characters, optional sound effects, and device-supported survivor voices accompany the playable survival loop. Additional enemy varieties, noise attraction, risky expeditions, and weather remain recommendations for future development.
 
 ## Project URL
 
-Pending public deployment. Select an HTTPS hosting target with persistent writable storage, WebSocket support, and one server replica. Use the [deployment instructions](deployment.md). Local development, passing tests, and a saved cloud configuration do not establish a public URL.
+Pending public deployment. The PC ZIP is a download, not a public game URL. A public service needs HTTPS, persistent storage, WebSocket support, and one authoritative server replica. Follow the [deployment instructions](deployment.md) when a hosting target is selected.

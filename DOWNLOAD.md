@@ -1,14 +1,17 @@
 # Download THE EXPERIMENT for your PC
 
-1. Open [the prepared game ZIP](https://github.com/jamesmorris0330-ops/Design-1/blob/main/releases/the-experiment-0.2.0.zip) on GitHub. If this repository is private, sign in with an account that has access.
-2. Click **Download raw file** on the file page. Download this prepared ZIP to get the compiled game and launchers.
+1. Open [the prepared v0.4.0 game ZIP](https://github.com/jamesmorris0330-ops/Design-1/blob/main/releases/the-experiment-0.4.0.zip) on GitHub. If the repository is private, sign in with an account that has access.
+2. Click **Download raw file** on the file page. This prepared ZIP includes the compiled game and launchers.
 3. Install **Node.js 24** from [nodejs.org](https://nodejs.org), then extract the complete ZIP into a writable folder such as Documents.
-4. On Windows, open the extracted game folder and double-click **start-local.cmd**. On macOS/Linux, run `bash start-local.sh` in that folder. The first launch installs runtime dependencies and needs Internet access.
+4. On Windows, double-click **start-local.cmd** in the extracted folder. On macOS/Linux, run `bash start-local.sh` there. The first launch installs runtime dependencies and needs Internet access.
+5. Keep the launcher open and open `http://localhost:3000` in your PC's browser. For phones and other computers, follow [the same-Wi-Fi instructions](docs/pc-quick-start.md).
 
-The game runs on your PC, port 3000. Keep its launcher open while playing. The ZIP includes `docs/pc-quick-start.md` with steps for joining from phones on the same Wi-Fi. No hosting account or domain is needed for local play.
+Create a room, choose one of five shelters, **Mark ready**, then **Start survival**. One human can play alone. The host can optionally use **Add CPU player** in the lobby; friends joining later can replace available CPUs. Click **Enable sound** for sound effects and device-supported voices.
 
-This release supports 1–8 human players with CPUs filling a 4–8 Subject roster. A solo host marks ready and chooses **Start with CPU players**. Use **Add CPU player** for a larger roster. New humans joining during active play take available CPU seats, retaining their score, dossier, and locked actions. Room-code joining, private directives, voting, reconnection, extensions up to the selected 15/20-round cap, the multi-stage finale, full reveal, and rematch remain available. Later mechanics are documented in the included implementation plan.
+Version 0.4.0 is a continuous survival game: move, shoot infected, collect supplies, craft and upgrade guns and gear, rescue and upgrade survivors, defend and improve one shared shelter, complete calendar goals, and elect officers with daily duties. A full game day is one real hour of active play by default. The world pauses when all humans disconnect. The former social-deduction rounds are retained only for older saved games.
 
-The accompanying `.zip.sha256` file contains the archive's SHA-256 checksum.
+The accompanying `.zip.sha256` file contains the archive's SHA-256 checksum. Downloading GitHub's general **Source code ZIP** does not provide the compiled release launchers expect; use the prepared release linked above.
 
-To update an older copy, stop its launcher, extract the new ZIP into a new folder, and launch the new version. To preserve existing rooms, copy the old `data` folder into the new game folder while both servers are stopped. Keep using the same browser profile and address.
+To update, stop the older launcher, extract this ZIP into a new folder, and launch the new version. To preserve saved rooms, copy the old `data` folder into the new folder while both servers are stopped, and keep the same browser profile and address. Start a new room for the survival game; existing round-based rooms keep their old rules.
+
+Your PC hosts this local game without a hosting account or domain. Its local address is reachable by devices on the same network, not a public Internet link.

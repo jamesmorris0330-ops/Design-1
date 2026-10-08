@@ -10,11 +10,14 @@ export interface Receipt {
   commandId: string;
   payloadHash: string;
   ack: CommandAck;
+  /** Continuous movement intent is replayable only inside its recent buffer. */
+  volatile?: boolean;
 }
 
 /** Server-only storage. Neither snapshots nor audit rows are client-readable. */
 export class Store {
   private readonly database: DatabaseSync;
+  private readonly commitsSinceCleanup = new Map<string, number>();
 
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
@@ -47,6 +50,7 @@ export class Store {
         ack TEXT NOT NULL,
         room_code TEXT NOT NULL REFERENCES rooms(code),
         at INTEGER NOT NULL,
+        volatile INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (actor_id, command_id)
       );
       CREATE TABLE IF NOT EXISTS host_presence (
@@ -55,6 +59,11 @@ export class Store {
         disconnected_at INTEGER
       );
     `);
+    // Existing downloaded databases predate continuous movement commands.
+    if (!this.database.prepare('PRAGMA table_info(command_receipts)').all().some(column => column.name === 'volatile')) {
+      this.database.exec('ALTER TABLE command_receipts ADD COLUMN volatile INTEGER NOT NULL DEFAULT 0');
+    }
+    this.database.exec('CREATE INDEX IF NOT EXISTS room_events_room_sequence ON room_events(room_code, sequence); CREATE INDEX IF NOT EXISTS command_receipts_actor_volatile_at ON command_receipts(actor_id, volatile, at);');
   }
 
   loadRooms(): Room[] {
@@ -83,8 +92,23 @@ export class Store {
         .run(room.code, JSON.stringify(room), at);
       this.database.prepare('INSERT INTO room_events(room_code, at, event) VALUES (?, ?, ?)').run(room.code, at, JSON.stringify(event));
       if (receipt) {
-        this.database.prepare('INSERT INTO command_receipts(actor_id, command_id, payload_hash, ack, room_code, at) VALUES (?, ?, ?, ?, ?, ?)')
-          .run(receipt.actorId, receipt.commandId, receipt.payloadHash, JSON.stringify(receipt.ack), room.code, at);
+        this.database.prepare('INSERT INTO command_receipts(actor_id, command_id, payload_hash, ack, room_code, at, volatile) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(receipt.actorId, receipt.commandId, receipt.payloadHash, JSON.stringify(receipt.ack), room.code, at, receipt.volatile ? 1 : 0);
+        if (receipt.volatile) {
+          // Keep the newest 300 movement acknowledgements for tab/retry races.
+          // Crafting, upgrades, loot and other economic actions remain durable.
+          this.database.prepare('DELETE FROM command_receipts WHERE rowid IN (SELECT rowid FROM command_receipts WHERE actor_id = ? AND volatile = 1 ORDER BY at DESC, rowid DESC LIMIT -1 OFFSET 300)').run(receipt.actorId);
+        }
+      }
+      if (room.survival) {
+        const cleanup = (this.commitsSinceCleanup.get(room.code) ?? 199) + 1;
+        this.commitsSinceCleanup.set(room.code, cleanup % 200);
+        if (cleanup >= 200) {
+          // The canonical snapshot owns long-term survival progress. Tick audit
+          // rows are diagnostic, so retain 2,000 recent events rather than an
+          // unbounded ten rows per second for a months-long world.
+          this.database.prepare('DELETE FROM room_events WHERE sequence IN (SELECT sequence FROM room_events WHERE room_code = ? ORDER BY sequence DESC LIMIT -1 OFFSET 2000)').run(room.code);
+        }
       }
       this.database.exec('COMMIT');
     } catch (error) {

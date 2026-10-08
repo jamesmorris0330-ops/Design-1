@@ -10,6 +10,7 @@ import type { WebSocket } from 'ws';
 import { commandSchema, DEFAULT_SETTINGS, settingsSchema, type CommandEnvelope, type ServerMessage } from '../shared/protocol';
 import { addMember, applyCommand, createRoom, EngineError, isCpuMember, projectRoom, tick, type Room } from './engine';
 import { runCpuPlayers } from './cpu';
+import { tickSurvivalWorld } from './survival';
 import { Store, type CommandAck, type Receipt } from './store';
 
 const SESSION_COOKIE = 'experiment_session';
@@ -62,6 +63,12 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
     }
   };
   const rooms = new Map(store.loadRooms().map(room => [room.code, room]));
+  // A saved survival world resumes from its saved clock, never from wall-clock
+  // downtime. Old input belongs to the disconnected controller, not a restart.
+  for (const room of rooms.values()) if (room.survival) {
+    room.survival.lastTickAt = now();
+    for (const player of Object.values(room.survival.players)) player.input = { moveX: 0, moveY: 0, aim: player.aim, fire: false, receivedAt: now() };
+  }
   const connections = new Map<string, Map<string, Connection>>();
   const queues = new Map<string, Promise<void>>();
   const rateWindows = new Map<string, { start: number; count: number }>();
@@ -234,7 +241,7 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
       if (!(error instanceof EngineError)) throw error;
       ack = rejectAck(command.commandId, error.code, error.message);
     }
-    const receipt: Receipt = { actorId: connection.actorId, commandId: command.commandId, payloadHash, ack };
+    const receipt: Receipt = { actorId: connection.actorId, commandId: command.commandId, payloadHash, ack, volatile: command.action.type === 'survival_input' };
     commit(ack.ok ? candidate : room, now(), { type: ack.ok ? 'command_accepted' : 'command_rejected', actorId: connection.actorId, command, errorCode: ack.error?.code ?? null }, receipt);
     if (ack.ok) rooms.set(connection.code, candidate);
     send(connection, ack);
@@ -265,7 +272,7 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
     socket.on('error', () => { /* Connection errors never contain game or credential logs. */ });
     socket.on('message', (data, binary) => {
       if (shuttingDown) return;
-      if (!rateLimit(`command:${connection.actorId}`, 100, 10_000)) { send(connection, { type: 'error', message: 'Too many actions. Wait a moment before trying again.' }); return; }
+      if (!rateLimit(`raw:${connection.actorId}`, 200, 1000)) { send(connection, { type: 'error', message: 'Too many messages. Wait a moment before trying again.' }); return; }
       let parsed: unknown;
       try { if (binary) throw new Error('Binary commands are not supported'); parsed = JSON.parse(data.toString()); }
       catch { send(connection, { type: 'error', message: 'Send a valid JSON game command.' }); return; }
@@ -275,6 +282,10 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
         send(connection, id ? rejectAck(id, 'INVALID_COMMAND', 'This action has an invalid format.') : { type: 'error', message: 'This action has an invalid format.' });
         return;
       }
+      const input = result.data.action.type === 'survival_input';
+      if (!rateLimit(`${input ? 'input' : 'command'}:${connection.actorId}`, input ? 25 : 100, input ? 1000 : 10_000)) {
+        send(connection, rejectAck(result.data.commandId, 'RATE_LIMIT', 'Too many actions. Wait a moment before trying again.')); return;
+      }
       void enqueue(context.code, () => execute(connection, result.data)).catch(() => {
         send(connection, rejectAck(result.data.commandId, 'SERVER_ERROR', 'This action could not be saved. Reconnect and retry.'));
       });
@@ -282,7 +293,18 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
     socket.on('close', () => {
       if (controls.get(connection.actorId) !== connection) return;
       controls.delete(connection.actorId);
-      if (!shuttingDown) void enqueue(context.code, () => broadcast(context.code)).catch(() => undefined);
+      if (!shuttingDown) void enqueue(context.code, () => {
+        const current = getRoom(context.code);
+        if (current.survival?.players[connection.actorId]) {
+          const room = structuredClone(current);
+          const player = room.survival!.players[connection.actorId]!;
+          player.input = { moveX: 0, moveY: 0, aim: player.aim, fire: false, receivedAt: now() };
+          if (!online(context.code).size) room.survival!.lastTickAt = now();
+          commit(room, now(), { type: 'survival_controller_disconnected', actorId: connection.actorId });
+          rooms.set(context.code, room);
+        }
+        broadcast(context.code);
+      }).catch(() => undefined);
     });
     void enqueue(context.code, () => broadcast(context.code)).catch(() => { socket.close(1011, 'Room unavailable'); });
   });
@@ -291,13 +313,26 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
   const processTimers = (code: string): void => {
     const current = getRoom(code);
     let room = structuredClone(current);
-    let changed = tick(room, now());
-    changed = runCpuPlayers(room, now()) || changed;
+    let changed = false;
+    if (room.survival && room.status === 'running') {
+      const onlineIds = online(code);
+      const eligible = room.members.filter(member => !member.removed && member.role === 'subject');
+      const humanIds = new Set(eligible.filter(member => !isCpuMember(member) && onlineIds.has(member.id)).map(member => member.id));
+      const cpuIds = new Set(eligible.filter(isCpuMember).map(member => member.id));
+      changed = tickSurvivalWorld(room.survival, now(), humanIds, cpuIds, new Set(room.members.filter(member => member.role === 'subject' && !member.removed).map(member => member.id)));
+      if (!room.survival.active) { room.status = 'postgame'; changed = true; }
+      // Paused/offline ticks only refresh the wall-clock anchor. Keeping that
+      // anchor in memory avoids ten disk writes a second for an idle world.
+      if (!changed && current.survival) current.survival.lastTickAt = room.survival.lastTickAt;
+    } else {
+      changed = tick(room, now());
+      changed = runCpuPlayers(room, now()) || changed;
+    }
     const presence = store.hostPresence(code);
     if (presence && presence.hostId === room.hostId && presence.disconnectedAt !== null && now() - presence.disconnectedAt >= HOST_GRACE_MS && !online(code).has(room.hostId)) {
       const successor = room.members.filter(member => !isCpuMember(member) && member.role === 'subject' && !member.removed && online(code).has(member.id)).sort((a, b) => a.joinedAt - b.joinedAt)[0];
       if (successor) {
-        const command: CommandEnvelope = { commandId: randomUUID(), gameId: room.game?.id ?? null, phaseId: room.game?.phase.id ?? null, action: { type: 'transfer_host', targetId: successor.id } };
+        const command: CommandEnvelope = { commandId: randomUUID(), gameId: room.survival?.id ?? room.game?.id ?? null, phaseId: room.game?.phase.id ?? null, action: { type: 'transfer_host', targetId: successor.id } };
         try { applyCommand(room, room.hostId, command, now()); changed = true; }
         catch (error) { if (!(error instanceof EngineError)) throw error; }
       }
@@ -313,15 +348,21 @@ export async function createApp(options: AppOptions = {}): Promise<FastifyInstan
     updateHostPresence(room);
     processTimers(room.code);
   }
+  const lastLegacySweep = new Map<string, number>();
   const timer = setInterval(() => {
     if (shuttingDown) return;
-    for (const code of rooms.keys()) void enqueue(code, () => processTimers(code)).catch(() => {
-      if (!degradedRooms.has(code)) app.log.error({ event: 'timer_transition_failure', room: code }, 'Room deadline could not be advanced.');
-      degradedRooms.add(code);
-    });
+    for (const [code, room] of rooms) {
+      // Existing phase-based rooms retain their previous default 500 ms sweep.
+      if (options.timerIntervalMs === undefined && !room.survival && now() - (lastLegacySweep.get(code) ?? 0) < 500) continue;
+      if (!room.survival) lastLegacySweep.set(code, now());
+      void enqueue(code, () => processTimers(code)).catch(() => {
+        if (!degradedRooms.has(code)) app.log.error({ event: 'timer_transition_failure', room: code }, 'Room deadline could not be advanced.');
+        degradedRooms.add(code);
+      });
+    }
     const time = now();
     for (const [key, value] of rateWindows) if (time - value.start > 60_000) rateWindows.delete(key);
-  }, options.timerIntervalMs ?? 500);
+  }, options.timerIntervalMs ?? 100);
   timer.unref();
   const heartbeat = setInterval(() => {
     for (const controls of connections.values()) for (const connection of controls.values()) {
